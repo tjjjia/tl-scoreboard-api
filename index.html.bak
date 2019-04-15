@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+	<head>
+		<meta charset="utf-8">
+		<title>Socket.io Scoreboard</title>
+		<style media="screen">
+			html, body, h1, p, caption
+			table, tbody, thead, tr, th, td {
+				margin: 0;
+				padding: 0;
+				border: 0;
+			}
+
+			html, body {
+				font-size: 18px;
+				text-align: center;
+			}
+
+			table {
+				margin: 0 auto;
+				position: relative;
+				font-size: 0;
+				overflow: scroll;
+			}
+			tbody {
+				display: block;
+				/* height: 20rem; */
+			}
+			tr {
+				position: relative;
+				display: table-cell;
+				width: 8rem;
+				height: 24rem;
+				text-align: center;
+
+				border: 1px solid red;
+
+				animation: fade-in 1s 1;
+			}
+			@keyframes fade-in {
+				0% {
+					opacity: 0;
+					transform: translateY(.5rem);
+					/* transform: scale(.9) translateY(-5px); */
+					transform-origin: 50% 100%;;
+				}
+				100% {
+					opacity: 1;
+					transform: translateY(0);
+					/* transform: scale(1) translateY(0); */
+				}
+			}
+			th {
+				/* text labels */
+				position: absolute;
+				bottom: 0;
+				width: 100%;
+				text-align: center;
+				/* left: 50%; */
+				/* transform: translateX(-50%); */
+			}
+			td {
+				display: block;
+				position: relative;
+				width: 100%;
+				height: 100%;
+
+				border: 1px solid blue;
+
+				vertical-align: bottom;
+				text-align: center;
+			}
+			h1, th, p {
+				font-family: -apple-system;
+				font-size: 1rem;
+				/* padding-top: .25rem; */
+			}
+			.bar {
+				display: inline-block;
+				width: 3rem;
+				height: 2rem;
+				/* bottom: 0; */
+				/* left: 50%; */
+				/* transform: translateX(-50%); */
+				transform-origin: 50% 100%;
+				transition: transform ease-in .2s;
+			}
+			p {
+				display: block;
+				position: absolute;
+				width: 100%;
+				bottom: 0;
+				transition: bottom ease-in .2s .1s;
+			}
+
+			tr:nth-of-type(1) span.bar { background: red; }
+			tr:nth-of-type(2) span.bar { background: blue; }
+			tr:nth-of-type(3) span.bar { background: yellow; }
+			tr:nth-of-type(4) span.bar { background: gray; }
+			tr span.bar { background: #ccc; }
+
+		</style>
+	</head>
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+		<script>
+		(function() {
+			var currentData = new Object();
+			var teams = new Object();
+
+			var table = document.createElement('table');
+			var tbody = document.createElement('tbody');
+			document.body.appendChild(table);
+			table.appendChild(tbody);
+
+			function Section( teamName ) {
+				this.element, this.th, this.td, this.bar, this.p;
+				this.teamName = teamName || 'Team';
+				this.teamScore = 0;
+			}
+
+			Object.assign( Section.prototype, {
+				make : function () {
+					this.element = document.createElement('tr');
+					this.th = document.createElement('th');
+					this.element.appendChild(this.th);
+
+					this.td = document.createElement('td');
+					this.element.appendChild(this.td);
+
+					this.bar = document.createElement('span'); // .bar
+					this.bar.className = 'bar';
+					this.td.appendChild(this.bar);
+
+					this.p = document.createElement('p'); // p
+					this.td.appendChild(this.p);
+
+					this.th.innerText = this.teamName;
+
+					return this.element;
+				},
+				update : function ( newScore ) {
+					this.teamScore = newScore;
+					this.p.innerText = this.teamScore;
+					this.p.style.bottom = (newScore*10-15)+'%'
+					// this.bar.style.transform = 'scaleY('+(newScore/2)+')'
+					// this.bar.style.transform = 'translateX(-50%) scaleY('+(newScore/2)+')'
+				}
+			});
+
+			function addTeam( teamName, value ) {
+				teams[teamName] = new Section( teamName );
+				tbody.appendChild( teams[teamName].make() );
+			}
+
+			function updateScore( teamName, value ) {
+				teams[teamName].update( value );
+			}
+
+			var socket = io();
+			var currentData = new Object();
+
+			socket.on( 'dataUpdate', function( socketData ) {
+				var change = function(obj1, obj2) {
+					// based on https://stackoverflow.com/a/48181184/9491476
+					// @Santiago Bendavid
+					return _.reduce(obj1, function(result, value, key) {
+						if (_.isPlainObject(value)) {
+							result[key] = diff(value, obj2[key]);
+						} else if (!_.isEqual(value, obj2[key])) {
+							if ( _.has(obj2, key) ) { // existing team, new score
+								result[key] = [true, value];
+							} else {	// new team
+								result[key] = [false, value];
+							}
+						}
+						return result;
+					}, {});
+				};
+
+				var changes = change(socketData, currentData);
+				if (changes) {
+					_.each(changes, function(value, key){
+						// console.log( value, key); // [ false, 3 ], a
+						if ( value[0] === false ) { // new team, generate section
+							addTeam( key, value[1] );
+							updateScore( key, value[1] );
+						} else { // existing team, update score
+							updateScore( key, value[1] );
+						}
+					});
+				}
+
+				currentData = socketData;
+
+			});
+		})();
+		</script>
+	</body>
+</html>
