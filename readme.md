@@ -1,4 +1,4 @@
-# tl-scoreboard-api
+# Scoreboard API
 
-fully reliant on node.js
-stores data in JavaScript Object
+A fast, responsive scoreboard to attach to your Torch AR scenes.
+A local API server running on Node.js.
